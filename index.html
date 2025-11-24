@@ -1167,7 +1167,11 @@
         el.workerName.value = workerName;
         el.machine.value = machine;
         el.peopleCount.value = peopleCount;
-        el.startTime.value = plannedStartTime;
+
+        // Update Time Picker inputs
+        if (el.startTime) el.startTime.value = plannedStartTime;
+        const startTimeDisplay = document.getElementById('startTimeDisplay');
+        if (startTimeDisplay) startTimeDisplay.value = plannedStartTime;
         el.displayWorkerName.textContent = workerName;
         el.displayMachine.textContent = machine;
         el.displayPeopleCount.textContent = peopleCount;
@@ -1184,7 +1188,9 @@
         breaksCurrent = Array.isArray(cur.breaksCurrent) ? cur.breaksCurrent : [];
         isOnBreak = !!cur.isOnBreak;
         breakStartAt = cur.breakStartAt || null;
-        el.productSelect.value = currentProduct || '';
+
+        // Update Product Search instead of Select
+        if (el.productSearch) el.productSearch.value = currentProduct || '';
         el.displayCurrentProduct.textContent = currentProduct || '—';
         if (el.quantityInput) el.quantityInput.value = cur.quantityDraft || '';
         if (el.labelTypeSelect) el.labelTypeSelect.value = cur.labelTypeDraft || '';
@@ -2141,13 +2147,8 @@
     }
 
     // Zamknij listę po kliknięciu poza nią
-    document.addEventListener('click', function (event) {
-      const searchInput = document.getElementById('productSearch');
-      const productList = document.getElementById('productList');
-      if (event.target !== searchInput && event.target !== productList && !productList.contains(event.target)) {
-        productList.style.display = 'none';
-      }
-    });
+    // Zamknij listę po kliknięciu poza nią
+    // (Logic moved to unified click handler below)
 
     // === TIME PICKER MODAL ===
     let selectedHour = '06';
@@ -2198,7 +2199,9 @@
     }
 
     function closeTimePicker() {
+      console.log('closeTimePicker called');
       document.getElementById('timePickerModal').classList.remove('active');
+      document.getElementById('timePickerModal').style.display = 'none'; // Also hide it
     }
 
     function renderTimeColumns() {
@@ -2244,11 +2247,32 @@
     }
 
     function confirmTime() {
+      console.log('confirmTime called');
       const time = `${selectedHour}:${selectedMinute}`;
+      console.log('Confirming time:', time);
       document.getElementById('startTime').value = time;
       document.getElementById('startTimeDisplay').value = time;
       closeTimePicker();
     }
+
+    // Unified Click Handler for closing modals and dropdowns
+    document.addEventListener('click', function (event) {
+      // 1. Close Product Search Dropdown
+      const searchInput = document.getElementById('productSearch');
+      const productList = document.getElementById('productList');
+      if (searchInput && productList) {
+        if (event.target !== searchInput && event.target !== productList && !productList.contains(event.target)) {
+          productList.style.display = 'none';
+        }
+      }
+
+      // 2. Close Time Picker Modal when clicking outside
+      const timePickerModal = document.getElementById('timePickerModal');
+      if (timePickerModal && event.target == timePickerModal) {
+        console.log('Clicked outside time picker modal');
+        closeTimePicker();
+      }
+    });
 
     // === GOOGLE SHEETS - LISTA RODZAJÓW ETYKIET ===
     async function loadLabelTypesFromSheet() {
