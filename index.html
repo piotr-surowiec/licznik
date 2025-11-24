@@ -473,6 +473,55 @@
       background-color: #3498db;
       color: white;
     }
+
+    #productSelect option:hover {
+      background-color: #3498db;
+      color: white;
+    }
+
+    /* Responsive Grid for Screen 2 Inputs */
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .input-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .input-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Custom Time Picker Styles */
+    .time-picker-container {
+      display: flex;
+      gap: 10px;
+    }
+
+    .time-picker-container select {
+      flex: 1;
+    }
+
+    /* Date Input Styling */
+    input[type='date'] {
+      appearance: none;
+      -webkit-appearance: none;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 16px;
+      font-family: inherit;
+      background: white;
+      height: 48px;
+      /* Match other inputs */
+    }
   </style>
 </head>
 
@@ -515,8 +564,45 @@
       </div>
 
       <div class="form-group">
-        <label for="startTime">Godzina rozpoczęcia <span class="required">*</span></label>
-        <input type="time" id="startTime" required>
+        <label>Godzina rozpoczęcia <span class="required">*</span></label>
+        <div class="time-picker-container">
+          <select id="startHour" required>
+            <option value="">Godzina</option>
+            <option value="06">06</option>
+            <option value="07">07</option>
+            <option value="08">08</option>
+            <option value="09">09</option>
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12">12</option>
+            <option value="13">13</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+            <option value="16">16</option>
+            <option value="17">17</option>
+            <option value="18">18</option>
+            <option value="19">19</option>
+            <option value="20">20</option>
+            <option value="21">21</option>
+            <option value="22">22</option>
+          </select>
+          <select id="startMinute" required>
+            <option value="">Minuta</option>
+            <option value="00">00</option>
+            <option value="05">05</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="25">25</option>
+            <option value="30">30</option>
+            <option value="35">35</option>
+            <option value="40">40</option>
+            <option value="45">45</option>
+            <option value="50">50</option>
+            <option value="55">55</option>
+          </select>
+        </div>
+        <input type="hidden" id="startTime">
       </div>
 
       <div class="button-group">
@@ -595,7 +681,7 @@
           </table>
         </div>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+      <div class="input-grid">
         <div class="form-group" style="margin-bottom: 0;">
           <label for="quantityInput">Ilość zaetykietowana:<span class="required">*</span></label>
           <input type="number" id="quantityInput" min="1" placeholder="Wpisz ilość">
@@ -613,8 +699,6 @@
           <input type="text" id="batchNumberInput" placeholder="DD.RRRR L.MM.DD">
           <div id="batchValidation" class="validation-message">Wymagane!</div>
         </div>
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
         <div class="form-group" style="margin-bottom: 0;">
           <label for="productionDateInput">Data produkcji:<span class="required">*</span></label>
           <input type="date" id="productionDateInput">
@@ -1139,7 +1223,12 @@
       workerName = el.workerName.value.trim();
       machine = el.machine.value;
       peopleCount = el.peopleCount.value;
-      plannedStartTime = el.startTime.value;
+
+      // Construct time from dropdowns
+      const hour = document.getElementById('startHour').value;
+      const minute = document.getElementById('startMinute').value;
+      plannedStartTime = (hour && minute) ? `${hour}:${minute}` : '';
+
       if (!workerName || !machine || !peopleCount || !plannedStartTime) {
         alert('Wszystkie pola są wymagane!');
         return;
@@ -1769,7 +1858,8 @@
         el.workerName.value = '';
         el.machine.value = '';
         el.peopleCount.value = '';
-        el.startTime.value = '';
+        document.getElementById('startHour').value = '';
+        document.getElementById('startMinute').value = '';
 
         // Resetuj wyszukiwarkę i pakowanie
         if (el.productSearch) el.productSearch.value = '';
