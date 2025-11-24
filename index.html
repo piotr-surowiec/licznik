@@ -451,19 +451,25 @@
       font-size: 16px;
     }
 
-    #productSelect {
+    #productList {
+      border: 2px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      max-height: 300px;
+      overflow-y: auto;
+      background: white;
+      display: none;
       width: 100%;
-      border: 2px solid #3498db;
-      border-radius: 6px;
-      font-size: 16px;
+    }
+
+    .product-item {
+      padding: 12px;
       cursor: pointer;
+      border-bottom: 1px solid #eee;
+      font-size: 16px;
     }
 
-    #productSelect option {
-      padding: 8px;
-    }
-
-    #productSelect option:hover {
+    .product-item:hover {
       background-color: #3498db;
       color: white;
     }
@@ -544,13 +550,10 @@
 
 
       <div class="form-group">
-        <label for="productSelect">Produkt do etykietowania <span class="required">*</span></label>
+        <label for="productSearch">Produkt do etykietowania <span class="required">*</span></label>
         <input type="text" id="productSearch" placeholder="🔍 Wpisz aby wyszukać produkt ..." oninput="filterProducts()"
-          onfocus="showProductDropdown()" autocomplete="off" style="margin-bottom: 5px;">
-        <select id="productSelect" onchange="handleProductSelect()" size="10"
-          style="display: none; max-height: 400px; overflow-y: auto;">
-          <option value="">-- Wybierz produkt --</option>
-        </select>
+          onfocus="showProductDropdown()" autocomplete="off" style="margin-bottom: 0; border-radius: 6px 6px 0 0;">
+        <div id="productList"></div>
       </div>
 
       <div id="workTimerContainer" class="timer-container">
@@ -1152,8 +1155,8 @@
       resetSession(false);
       saveState();
     }
-    function handleProductSelect() {
-      currentProduct = el.productSelect.value;
+    function selectProduct(product) {
+      currentProduct = product;
 
       // Wypełnij pole wyszukiwania wybranym produktem
       const searchInput = document.getElementById('productSearch');
@@ -1162,9 +1165,9 @@
       }
 
       // Ukryj listę
-      const productSelect = document.getElementById('productSelect');
-      if (productSelect) {
-        productSelect.style.display = 'none';
+      const productList = document.getElementById('productList');
+      if (productList) {
+        productList.style.display = 'none';
       }
 
       el.displayCurrentProduct.textContent = currentProduct;
@@ -1191,8 +1194,10 @@
       if (el.notesInput) el.notesInput.value = '';
       if (clearProduct) {
         currentProduct = '';
-        if (el.productSelect) el.productSelect.value = '';
+        if (el.productSearch) el.productSearch.value = '';
         if (el.displayCurrentProduct) el.displayCurrentProduct.textContent = '—';
+        const productList = document.getElementById('productList');
+        if (productList) productList.style.display = 'none';
       }
       if (el.workTimer) el.workTimer.textContent = '00:00:00';
       if (el.breakTimer) el.breakTimer.textContent = '00:00:00';
@@ -1765,6 +1770,15 @@
         el.machine.value = '';
         el.peopleCount.value = '';
         el.startTime.value = '';
+
+        // Resetuj wyszukiwarkę i pakowanie
+        if (el.productSearch) el.productSearch.value = '';
+        const packagingRadios = document.getElementsByName('packagingType');
+        if (packagingRadios.length > 0) {
+          packagingRadios[0].checked = true; // Reset do pierwszego (Folia)
+          for (let i = 1; i < packagingRadios.length; i++) packagingRadios[i].checked = false;
+        }
+
         updateLabelingHistoryTable();
         updateBreakHistoryTable();
         updatePeopleChangeHistoryTable();
@@ -1777,6 +1791,7 @@
     function sendToGoogleSheets() {
       alert('Integracja z Google Sheets nie jest jeszcze skonfigurowana.');
     }
+
     // === GOOGLE SHEETS - LISTA MASZYN (z wybranej kolumny) ===
     async function loadMachinesFromSheet() {
       // KONFIGURACJA
@@ -1872,20 +1887,7 @@
       // Oblicz realną wydajność (szt/h)
       const realSpeed = (session.quantity / session.workDuration) * 60;
 
-      // Oblicz cel (szt/h)
-      // Potrzebujemy liczby osób z momentu sesji - ale w historii nie zapisujemy liczby osób per sesja, 
-      // tylko globalnie. Zapiszmy to!
-      // FIX: Wcześniej nie zapisywaliśmy peopleCount w sesji, ale jest to potrzebne.
-      // Zakładam, że peopleCount jest stałe dla sesji (pobierane przy stopLabeling).
-      // Jeśli nie ma w sesji, weźmiemy bieżące (fallback).
-
-      // UWAGA: Wcześniejszy kod nie zapisywał peopleCount w obiekcie session. 
-      // Dodam to dynamicznie w stopLabeling w kolejnym kroku, ale tutaj muszę obsłużyć brak.
       const people = session.peopleCount || parseInt(peopleCount) || 1;
-
-      // Maszyna też powinna być z sesji, ale nie jest zapisywana. Użyjemy globalnej machine.
-      // To jest pewne uproszczenie, ale w ramach jednej sesji maszyna się nie zmienia.
-      // Jeśli użytkownik zmieni maszynę, to i tak resetuje dzień (zgodnie z logiką app).
       const machineUsed = machine;
 
       const targetNorm = calculateNormTarget(session.product, session.packagingType, machineUsed, people);
@@ -1923,8 +1925,6 @@
           if (SKIP_HEADER && index === 0) return;
 
           const columns = line.split(',');
-          // CSV parsing simple split - uwaga na przecinki w cudzysłowach, ale tu zakładamy prosty format
-          // Lepiej użyć regexa do CSV jeśli dane są złożone, ale tu zostawiam prosto jak było.
           const productName = columns[0]?.replace(/"/g, '').trim();
           const jarType = columns[1]?.replace(/"/g, '').trim();
 
@@ -1984,27 +1984,38 @@
 
     // === WYSZUKIWARKA PRODUKTÓW ===
 
-    // Wypełnij select produktami
-    function populateProductSelect(products) {
-      const productSelect = document.getElementById('productSelect');
-      productSelect.innerHTML = '<option value="">-- Wybierz produkt --</option>';
+    // Wypełnij listę produktami
+    function populateProductList(products) {
+      const productList = document.getElementById('productList');
+      productList.innerHTML = '';
+
+      if (products.length === 0) {
+        const item = document.createElement('div');
+        item.className = 'product-item';
+        item.textContent = 'Brak wyników...';
+        item.style.color = '#7f8c8d';
+        item.style.cursor = 'default';
+        productList.appendChild(item);
+        return;
+      }
 
       products.forEach((product) => {
-        const option = document.createElement('option');
-        option.value = product;
-        option.textContent = product;
-        productSelect.appendChild(option);
+        const item = document.createElement('div');
+        item.className = 'product-item';
+        item.textContent = product;
+        item.onclick = () => selectProduct(product);
+        productList.appendChild(item);
       });
     }
 
     // Filtruj produkty podczas pisania
     function filterProducts() {
       const searchInput = document.getElementById('productSearch');
-      const productSelect = document.getElementById('productSelect');
+      const productList = document.getElementById('productList');
       const searchText = searchInput.value.toLowerCase().trim();
 
       if (searchText.length === 0) {
-        productSelect.style.display = 'none';
+        productList.style.display = 'none';
         return;
       }
 
@@ -2012,22 +2023,15 @@
       const filtered = allProducts.filter((product) => product.toLowerCase().includes(searchText));
 
       // Aktualizuj listę
-      populateProductSelect(filtered);
+      populateProductList(filtered);
 
-      // Pokaż select
-      if (filtered.length > 0) {
-        productSelect.size = 10; // Wymuś rozmiar listy
-        productSelect.style.display = 'block';
-      } else {
-        productSelect.innerHTML = '<option value="">Brak wyników dla: "' + searchText + '"</option>';
-        productSelect.size = 2; // Mały rozmiar dla braku wyników
-        productSelect.style.display = 'block';
-      }
+      // Pokaż listę
+      productList.style.display = 'block';
     }
 
     // Pokaż listę po kliknięciu w pole
     function showProductDropdown() {
-      const productSelect = document.getElementById('productSelect');
+      const productList = document.getElementById('productList');
       const searchInput = document.getElementById('productSearch');
 
       if (allProducts.length > 0 && searchInput.value.trim().length > 0) {
@@ -2035,13 +2039,12 @@
       }
     }
 
-    // Ukryj listę po kliknięciu poza nią
+    // Zamknij listę po kliknięciu poza nią
     document.addEventListener('click', function (event) {
       const searchInput = document.getElementById('productSearch');
-      const productSelect = document.getElementById('productSelect');
-
-      if (event.target !== searchInput && event.target !== productSelect) {
-        productSelect.style.display = 'none';
+      const productList = document.getElementById('productList');
+      if (event.target !== searchInput && event.target !== productList && !productList.contains(event.target)) {
+        productList.style.display = 'none';
       }
     });
 
