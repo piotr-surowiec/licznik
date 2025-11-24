@@ -1,3 +1,4 @@
+<!doctype html>
 <html lang="pl">
 
 <head>
@@ -2015,9 +2016,11 @@
 
       // Pokaż select
       if (filtered.length > 0) {
+        productSelect.size = 10; // Wymuś rozmiar listy
         productSelect.style.display = 'block';
       } else {
         productSelect.innerHTML = '<option value="">Brak wyników dla: "' + searchText + '"</option>';
+        productSelect.size = 2; // Mały rozmiar dla braku wyników
         productSelect.style.display = 'block';
       }
     }
