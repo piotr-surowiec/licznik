@@ -2177,27 +2177,37 @@
     let selectedMinute = '00';
 
     function openTimePicker() {
-      const modal = document.getElementById('timePickerModal');
-      const currentVal = document.getElementById('startTime').value;
+      console.log('openTimePicker called');
+      try {
+        const modal = document.getElementById('timePickerModal');
+        if (!modal) {
+          alert('Error: Modal not found!');
+          return;
+        }
+        const currentVal = document.getElementById('startTime').value;
 
-      if (currentVal) {
-        const [h, m] = currentVal.split(':');
-        selectedHour = h;
-        selectedMinute = m;
-      } else {
-        const now = new Date();
-        selectedHour = String(now.getHours()).padStart(2, '0');
-        selectedMinute = String(now.getMinutes()).padStart(2, '0');
+        if (currentVal) {
+          const [h, m] = currentVal.split(':');
+          selectedHour = h;
+          selectedMinute = m;
+        } else {
+          const now = new Date();
+          selectedHour = String(now.getHours()).padStart(2, '0');
+          selectedMinute = String(now.getMinutes()).padStart(2, '0');
+        }
+
+        renderTimeColumns();
+        modal.classList.add('active');
+
+        // Scroll to selection after render
+        setTimeout(() => {
+          scrollToSelection('hourColumn', selectedHour);
+          scrollToSelection('minuteColumn', selectedMinute);
+        }, 10);
+      } catch (e) {
+        console.error(e);
+        alert('Error opening time picker: ' + e.message);
       }
-
-      renderTimeColumns();
-      modal.classList.add('active');
-
-      // Scroll to selection after render
-      setTimeout(() => {
-        scrollToSelection('hourColumn', selectedHour);
-        scrollToSelection('minuteColumn', selectedMinute);
-      }, 10);
     }
 
     function closeTimePicker() {
