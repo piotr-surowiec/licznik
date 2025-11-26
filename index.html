@@ -799,6 +799,7 @@
               <th>Produkt</th>
               <th>Data i nr partii</th>
               <th>Data produkcji</th>
+              <th>Ilość osób</th>
               <th>Nr kart FO-18</th>
               <th>Rodzaj etykiety</th>
               <th>Pakowanie</th>
@@ -907,8 +908,10 @@
               <th>Produkt</th>
               <th>Data i nr partii</th>
               <th>Data produkcji</th>
+              <th>Ilość osób</th>
               <th>Nr kart FO-18</th>
               <th>Rodzaj etykiety</th>
+              <th>Pakowanie</th>
               <th>Start</th>
               <th>Stop</th>
               <th>Czas</th>
@@ -1497,6 +1500,7 @@
         quantity: qty,
         packagingType: document.querySelector('input[name="packagingType"]:checked')?.value || 'Folia',
         peopleCount: parseInt(peopleCount) || 1,
+        machine: machine, // Dodano zapis maszyny dla poprawnej historii norm
         breaks: [...breaksCurrent],
       };
 
@@ -1600,6 +1604,7 @@
                     <td>${s.product}</td>
                     <td>${s.batchNumber || ''}</td>
                     <td>${prodDateFormatted}</td>
+                    <td>${s.peopleCount || '-'}</td>
                     <td>${s.cardNumber || ''}</td>
                     <td>${s.labelType || ''}</td>
                     <td>${s.packagingType || '-'}</td>
@@ -1727,6 +1732,7 @@
                         <td>${s.product}</td>
                         <td>${s.batchNumber || ''}</td>
                         <td>${prodDateFormatted}</td>
+                        <td>${s.peopleCount || '-'}</td>
                         <td>${s.cardNumber || ''}</td>
                         <td>${s.labelType || ''}</td>
                         <td>${s.packagingType || '-'}</td>
@@ -1793,7 +1799,67 @@
     }
 
     // === FUNKCJE MODALU ZMIANY ILOŚCI OSÓB ===
+    function validateForm(showErrors = true) {
+      const qty = parseInt(el.quantityInput.value);
+      const labelType = el.labelTypeSelect.value;
+      const batchNumber = el.batchNumberInput.value.trim();
+      const productionDate = el.productionDateInput.value;
+      const cardNumber = el.cardNumberInput.value.trim();
+
+      let hasError = false;
+
+      if (!qty || qty <= 0) {
+        if (showErrors && el.quantityValidation) el.quantityValidation.classList.add('show');
+        hasError = true;
+      } else {
+        if (el.quantityValidation) el.quantityValidation.classList.remove('show');
+      }
+
+      if (!labelType) {
+        if (showErrors && el.labelTypeValidation) el.labelTypeValidation.classList.add('show');
+        hasError = true;
+      } else {
+        if (el.labelTypeValidation) el.labelTypeValidation.classList.remove('show');
+      }
+
+      if (!batchNumber) {
+        if (showErrors && el.batchValidation) el.batchValidation.classList.add('show');
+        hasError = true;
+      } else {
+        if (el.batchValidation) el.batchValidation.classList.remove('show');
+      }
+
+      if (!productionDate) {
+        if (showErrors && el.prodDateValidation) el.prodDateValidation.classList.add('show');
+        hasError = true;
+      } else {
+        if (el.prodDateValidation) el.prodDateValidation.classList.remove('show');
+      }
+
+      if (!cardNumber) {
+        if (showErrors && el.cardValidation) el.cardValidation.classList.add('show');
+        hasError = true;
+      } else {
+        if (el.cardValidation) el.cardValidation.classList.remove('show');
+      }
+
+      return !hasError;
+    }
+
     function openChangePeopleModal() {
+      if (isOnBreak) {
+        alert('Nie można zmienić liczby osób w trakcie przerwy! Zakończ przerwę, aby dokonać zmian.');
+        return;
+      }
+
+      // Jeśli sesja trwa (jest produkt i czas startu), wymagamy wypełnienia pól jak do STOPu
+      if (workStartAt && currentProduct) {
+        if (!validateForm(true)) {
+          alert('Aby zmienić liczbę osób, musisz wypełnić wszystkie wymagane pola bieżącej sesji (w tym ilość)!');
+          return;
+        }
+      }
+
       if (el.newPeopleCount && el.changePeopleModal) {
         el.newPeopleCount.value = peopleCount;
         el.changePeopleModal.classList.add('active');
@@ -1807,31 +1873,89 @@
     function confirmChangePeople() {
       if (!el.newPeopleCount) return;
       const newCount = el.newPeopleCount.value;
+
+      // Jeśli wybrano tę samą ilość, nic nie rób
+      if (newCount == peopleCount) {
+        cancelChangePeople();
+        return;
+      }
+
       if (!newCount || newCount < 1 || newCount > 10) {
         alert('Wpisz prawidłową ilość osób (1-10)');
         return;
       }
-      if (newCount != peopleCount) {
-        const now = new Date();
-        peopleCountHistory.push({
-          previousCount: peopleCount,
-          newCount: newCount,
-          changeTime: now.getTime(),
-          changeDate: now.toLocaleString('pl-PL', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-        });
-        peopleCount = newCount;
-        if (el.displayPeopleCount) el.displayPeopleCount.textContent = peopleCount;
-        if (el.summaryPeopleCount) el.summaryPeopleCount.textContent = peopleCount;
-        updatePeopleChangeHistoryTable();
-        saveState();
+
+      // LOGIKA DLA AKTYWNEJ SESJI (Licznik działa)
+      if (workStartAt) {
+        // Potwierdzenie rozdzielenia sesji
+        if (!confirm('Zmiana liczby osób zakończy obecną sesję i rozpocznie nową. Czy kontynuować?')) {
+          return;
+        }
+
+        // 1. Zapisz dane formularza do "przepisania"
+        const savedData = {
+          product: currentProduct,
+          labelType: el.labelTypeSelect.value,
+          batchNumber: el.batchNumberInput.value,
+          productionDate: el.productionDateInput.value,
+          cardNumber: el.cardNumberInput.value,
+          notes: el.notesInput.value,
+          packagingType: document.querySelector('input[name="packagingType"]:checked')?.value || 'Folia'
+        };
+
+        // 2. Zakończ obecną sesję (STOP)
+        if (!validateForm(true)) return;
+
+        stopLabeling(); // To wyczyści formularz i zresetuje sesję
+
+        // 3. Zapisz zmianę osób w historii
+        updatePeopleCount(newCount);
+
+        // 4. Rozpocznij nową sesję z przepisanymi danymi
+        // Przywróć produkt
+        selectProduct(savedData.product);
+
+        // Przywróć dane formularza
+        el.labelTypeSelect.value = savedData.labelType;
+        el.batchNumberInput.value = savedData.batchNumber;
+        el.productionDateInput.value = savedData.productionDate;
+        el.cardNumberInput.value = savedData.cardNumber;
+        el.notesInput.value = savedData.notes;
+
+        const radio = document.querySelector(`input[name="packagingType"][value="${savedData.packagingType}"]`);
+        if (radio) radio.checked = true;
+
+        // Rozpocznij pracę (START)
+        startLabeling();
+      } else {
+        // LOGIKA DLA BRAKU SESJI (Licznik nie działa)
+        // Po prostu zmieniamy ilość osób bez zapisywania sesji
+        updatePeopleCount(newCount);
       }
+
       if (el.changePeopleModal) el.changePeopleModal.classList.remove('active');
+    }
+
+    function updatePeopleCount(newCount) {
+      const now = new Date();
+      peopleCountHistory.push({
+        previousCount: peopleCount,
+        newCount: newCount,
+        changeTime: now.getTime(),
+        changeDate: now.toLocaleString('pl-PL', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      });
+      peopleCount = newCount;
+
+      if (el.displayPeopleCount) el.displayPeopleCount.textContent = peopleCount;
+      if (el.summaryPeopleCount) el.summaryPeopleCount.textContent = peopleCount;
+      updatePeopleChangeHistoryTable();
+      saveState();
     }
 
     function updatePeopleChangeHistoryTable() {
@@ -1958,6 +2082,7 @@
     let normsMap = {}; // Rodzaj słoika -> { ManualFolia, ManualKarton, AutoFolia, AutoKarton }
 
     // === NORMY I LOGIKA ===
+    // === NORMY I LOGIKA ===
     function getLineType(machineName) {
       if (!machineName) return 'MANUAL';
       const lower = machineName.toLowerCase();
@@ -1970,32 +2095,46 @@
     function calculateNormTarget(product, packaging, machine, people) {
       if (!product || !packaging || !machine || !people) return 0;
 
+      // 1. Znajdź rodzaj słoika dla produktu
       const jarType = productMap[product];
       if (!jarType) return 0;
 
-      const norms = normsMap[jarType];
-      if (!norms) return 0;
+      // 2. Pobierz normy dla tego rodzaju słoika
+      const normsForJar = normsMap[jarType];
+      if (!normsForJar) return 0;
 
+      // 3. Określ typ linii (MANUAL / AUTOMATIC)
       const lineType = getLineType(machine);
-      let baseNorm = 0;
 
-      if (lineType === 'AUTOMATIC') {
-        baseNorm = packaging === 'Folia' ? norms.AutoFolia : norms.AutoKarton;
-      } else {
-        baseNorm = packaging === 'Folia' ? norms.ManualFolia : norms.ManualKarton;
-      }
+      // 4. Pobierz normy dla konkretnej konfiguracji (Linia + Pakowanie)
+      // Klucz w mapie to np. "MANUAL_Folia" lub "AUTOMATIC_Karton"
+      const configKey = `${lineType}_${packaging}`;
+      const normsForConfig = normsForJar[configKey];
 
-      return baseNorm * people;
+      if (!normsForConfig) return 0;
+
+      // 5. Pobierz wartość dla danej liczby osób
+      // Tablica jest indeksowana od 0, więc dla 1 osoby index 0, dla 6 osób index 5.
+      // Ale w mapie zapiszemy to tak, że index = liczba osób (dla wygody, index 0 pusty)
+      const peopleInt = parseInt(people);
+      if (isNaN(peopleInt) || peopleInt < 1 || peopleInt > 6) return 0;
+
+      return normsForConfig[peopleInt] || 0;
     }
 
     function getNormStatusHtml(session) {
       if (!session.quantity || !session.workDuration || session.workDuration <= 0) return '-';
 
       // Oblicz realną wydajność (szt/h)
-      const realSpeed = (session.quantity / session.workDuration) * 60;
+      // ZMIANA: Odejmujemy czas przerw od czasu pracy do wyliczenia normy
+      let netWorkDuration = session.workDuration - (session.breakDuration || 0);
+      if (netWorkDuration <= 0) netWorkDuration = 1; // Zabezpieczenie przed dzieleniem przez 0
+
+      const realSpeed = (session.quantity / netWorkDuration) * 60;
 
       const people = session.peopleCount || parseInt(peopleCount) || 1;
-      const machineUsed = machine;
+      // Użyj maszyny z sesji, a jeśli brak (stare sesje) - użyj bieżącej
+      const machineUsed = session.machine || machine;
 
       const targetNorm = calculateNormTarget(session.product, session.packagingType, machineUsed, people);
 
@@ -2055,6 +2194,8 @@
       const GID = '520596027'; // Nowy GID
       const SKIP_HEADER = true;
 
+      // Pobieramy jako CSV - to jest właśnie ten "plik CSV", o którym pisałem w planie.
+      // Google Sheets eksportuje dane do formatu tekstowego CSV, który łatwo obrobić w JS.
       const url = `https://corsproxy.io/?${encodeURIComponent(
         `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`
       )}`;
@@ -2068,22 +2209,52 @@
 
         normsMap = {};
 
+        // Oczekiwana struktura CSV:
+        // Col 0: Rodzaj Słoika
+        // Col 1: Typ Linii (MANUAL / AUTOMATIC)
+        // Col 2: Pakowanie (Folia / Karton)
+        // Col 3: 1 os
+        // Col 4: 2 os
+        // Col 5: 3 os
+        // Col 6: 4 os
+        // Col 7: 5 os
+        // Col 8: 6 os
+
         lines.forEach((line, index) => {
           if (SKIP_HEADER && index === 0) return;
 
           const cols = line.split(',');
-          const jarType = cols[0]?.replace(/"/g, '').trim();
+          // Usuwamy cudzysłowy, które CSV może dodać
+          const cleanCols = cols.map(c => c ? c.replace(/"/g, '').trim() : '');
 
-          if (jarType) {
-            normsMap[jarType] = {
-              ManualFolia: parseInt(cols[1]) || 0,
-              ManualKarton: parseInt(cols[2]) || 0,
-              AutoFolia: parseInt(cols[3]) || 0,
-              AutoKarton: parseInt(cols[4]) || 0
-            };
+          const jarType = cleanCols[0];
+          const lineType = cleanCols[1]?.toUpperCase(); // MANUAL / AUTOMATIC
+          const packaging = cleanCols[2]; // Folia / Karton
+
+          if (jarType && lineType && packaging) {
+            if (!normsMap[jarType]) {
+              normsMap[jarType] = {};
+            }
+
+            // Klucz konfiguracji: np. "MANUAL_Folia"
+            const configKey = `${lineType}_${packaging}`;
+
+            // Tablica norm: index 1 = 1 osoba, index 6 = 6 osób
+            const norms = [
+              0, // index 0 (nieużywany)
+              parseInt(cleanCols[3]) || 0, // 1 os
+              parseInt(cleanCols[4]) || 0, // 2 os
+              parseInt(cleanCols[5]) || 0, // 3 os
+              parseInt(cleanCols[6]) || 0, // 4 os
+              parseInt(cleanCols[7]) || 0, // 5 os
+              parseInt(cleanCols[8]) || 0  // 6 os
+            ];
+
+            normsMap[jarType][configKey] = norms;
           }
         });
-        console.log(`✅ Załadowano normy dla ${Object.keys(normsMap).length} rodzajów słoików`);
+        console.log(`✅ Załadowano nowe normy (tabela) dla ${Object.keys(normsMap).length} rodzajów słoików`);
+        console.log('Przykładowe dane:', normsMap);
       } catch (e) {
         console.error('❌ Błąd ładowania norm:', e);
       }
