@@ -1372,9 +1372,7 @@ async function loadMachinesFromSheet() {
   const GID = '542333307';
   const COLUMN_INDEX = 3;
   const SKIP_HEADER = true;
-  const url = `https://corsproxy.io/?${encodeURIComponent(
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`
-  )}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
   try {
     const response = await fetch(url);
@@ -1411,9 +1409,7 @@ async function loadProductsFromSheet() {
   const SHEET_ID = '1JTyATb7I4fMj7rywuByjGZmtMXNDP0uc010i3ZBoq0s';
   const GID = '542333307';
   const SKIP_HEADER = true;
-  const url = `https://corsproxy.io/?${encodeURIComponent(
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`
-  )}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
   try {
     const response = await fetch(url);
@@ -1446,9 +1442,7 @@ async function loadNormsFromSheet() {
   const SHEET_ID = '1JTyATb7I4fMj7rywuByjGZmtMXNDP0uc010i3ZBoq0s';
   const GID = '520596027';
   const SKIP_HEADER = true;
-  const url = `https://corsproxy.io/?${encodeURIComponent(
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`
-  )}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
   try {
     const response = await fetch(url);
@@ -1490,9 +1484,7 @@ async function loadLabelTypesFromSheet() {
   const GID = '542333307';
   const COLUMN_INDEX = 5; // 5 = kolumna F (Rodzaj etykiety)
   const SKIP_HEADER = true;
-  const url = `https://corsproxy.io/?${encodeURIComponent(
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`
-  )}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
